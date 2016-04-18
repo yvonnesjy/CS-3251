@@ -46,128 +46,13 @@ public class DBClient {
             }
         }
 
-        clientRTP(ip, port, id, fn, ln, point, hours, gpa);
+        RTP rtpService = new RTP(1);
+        byte[] info = rtpService.clientRoutine(ip, port, id);
+        printInfo(info, fn, ln, point, hours, gpa);
     }
 
-    private static void clientRTP(InetAddress ip, int port, String id, boolean fn, boolean ln, boolean point, boolean hours, boolean gpa) throws SocketException {
-        RTP rtpService = new RTP();
-        DatagramSocket clientSocket = new DatagramSocket();
-        clientSocket.setSoTimeout(TIMEOUT);
-        InetSocketAddress serverAddr = new InetSocketAddress(ip, port);
-
-        String connectionConfirmMsg = setUpConnection(clientSocket, serverAddr, rtpService);
-        String infoMsg = requestInfo(connectionConfirmMsg, clientSocket, serverAddr, id, rtpService, fn, ln, point, hours, gpa);
-        teardown(infoMsg, clientSocket, serverAddr, rtpService);
-    }
-
-    private static String setUpConnection(DatagramSocket clientSocket, InetSocketAddress serverAddr, RTP rtpService) {
-        DatagramPacket sendPacket = rtpService.makeConnectionPacket(null, serverAddr, "");
-        DatagramPacket receivePacket = RTP.makeReceivePacket();
-
-        while(true) {
-            try {
-                clientSocket.send(sendPacket);
-            } catch (IOException e) {
-                continue;
-            }
-
-            boolean pass = false;
-
-            while (true) {
-                try {
-                    clientSocket.receive(receivePacket);
-                } catch (SocketTimeoutException e) {
-                    break; // resend
-                } catch (IOException e) {
-                    continue;
-                }
-                String msg = new String(receivePacket.getData());
-                // TODO: check seq and ack
-                if (!receivePacket.getSocketAddress().equals(serverAddr)
-                    || !rtpService.isInOrder(sendPacket, msg)
-                    || !rtpService.isSYN(msg)) {
-                    continue;
-                }
-                pass = true;
-                break;
-            }
-            if (pass) {
-                break;
-            }
-        }
-
-        return new String(receivePacket.getData());
-    }
-
-    private static String requestInfo(String serverMsg, DatagramSocket clientSocket, InetSocketAddress serverAddr, String id, RTP rtpService,
-            boolean fn, boolean ln, boolean point, boolean hours, boolean gpa) {
-        DatagramPacket sendPacket = rtpService.makeConnectionPacket(serverMsg, serverAddr, id);
-        DatagramPacket receivePacket = RTP.makeReceivePacket();
-
-        while(true) {
-            try {
-                clientSocket.send(sendPacket);
-            } catch (IOException e) {
-                continue;
-            }
-
-            boolean pass = false;
-            int count = -1;
-            while (true) {
-            	count++;
-            	if (count == TIMEOUT) {
-            		break;
-            	}
-                try {
-                    clientSocket.receive(receivePacket);
-                } catch (SocketTimeoutException e) {
-                    break; // resend
-                } catch (IOException e) {
-                    continue;
-                }
-                String msg = new String(receivePacket.getData());
-
-                // TODO: check seq and ack
-                if (!receivePacket.getSocketAddress().equals(serverAddr)
-                    || !rtpService.isInOrder(sendPacket, msg)) {
-                    continue;
-                }
-                pass = true;
-                break;
-            }
-
-            String msg = new String(receivePacket.getData());
-            if (pass) {
-                String info = rtpService.getData(msg);
-                try {
-                    printInfo(info, fn, ln, point, hours, gpa);
-                } catch (Exception e) {
-                    continue;
-                }
-                break;
-            }
-        }
-
-        return new String(receivePacket.getData());
-    }
-
-    private static void teardown(String serverMsg, DatagramSocket clientSocket, InetSocketAddress serverAddr, RTP rtpService) {
-        DatagramPacket sendPacket = rtpService.teardownPacket(serverMsg, serverAddr);
-        while (true) {
-            try {
-                clientSocket.send(sendPacket);
-                break;
-            } catch (IOException e) {
-                continue;
-            }
-        }
-    }
-
-    private static void printInfo(String infoRec, boolean fn, boolean ln, boolean point, boolean hours, boolean gpa) throws Exception {
-        String[] info = infoRec.split(" ");
-        if (info.length != 4) {
-            throw new Exception();
-        }
+    private static void printInfo(byte[] infoRec, boolean fn, boolean ln, boolean point, boolean hours, boolean gpa){
+        String[] info = new String(infoRec).split(" ");
 
         System.out.print("From server:");
         if (fn) {
