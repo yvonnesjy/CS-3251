@@ -127,13 +127,15 @@ public class RTP {
 
     public DatagramPacket makeSendPacket(InetSocketAddress clientAddr, String flags, String ack_num, byte[] data) {
         byte[] sendData = merge((flags+getSeqNum()+ack_num).getBytes(), new byte[1], new byte[RWND_LEN], data);
-        byte checksum = sendData[0];
-        for (int i = 1; i < sendData.length; i++) {
-            if (i != CHECKSUM) {
-                checksum ^= sendData[i];
-            }
+        if (DATA_IND >= sendData.length) {
+        	sendData[CHECKSUM] = 0;
+        } else {
+	        byte checksum = sendData[DATA_IND];
+	        for (int i = DATA_IND + 1; i < sendData.length; i++) {
+	            checksum ^= sendData[i];
+	        }
+	        sendData[CHECKSUM] = checksum;
         }
-        sendData[CHECKSUM] = checksum;
         return new DatagramPacket(sendData, sendData.length, clientAddr.getAddress(), clientAddr.getPort());
     }
 
@@ -200,11 +202,10 @@ public class RTP {
     }
 
     public static byte[] getData(String msg) {
-        try {
-            return msg.substring(DATA_IND).getBytes();
-        } catch (IndexOutOfBoundsException e) {
-            return null;
-        }
+    	if (DATA_IND >= msg.trim().length()) {
+    		return null;
+    	}
+        return msg.trim().substring(DATA_IND).getBytes();
     }
     
     public static String responseAckNum(String msg) {

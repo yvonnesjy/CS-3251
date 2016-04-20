@@ -32,7 +32,7 @@ public class ServerThread implements Runnable {
         DatagramPacket sendPacket = rtpService.makeConnectionPacket(msg, clientAddr, new byte[0]);
         long start = System.currentTimeMillis();
         boolean firstPacket = true;
-        // TODO: check seq and ack
+        
         while (rtpService.getInbox().get(clientAddr).isEmpty()
             || !RTP.isInOrder(sendPacket, rtpService.getInbox().get(clientAddr).get(0))
             || !RTP.isSYN(rtpService.getInbox().get(clientAddr).get(0))) {
@@ -70,12 +70,13 @@ public class ServerThread implements Runnable {
         int wndLen = RTP.getRWND(RTP.INITIAL_WND, clientMsg);
 
         String msg = null;
+        DatagramPacket packet = null;
         while (wndBase < sendPacket.size()) {
             int nextPacket = wndBase;
             for (int i = 0; i < wndLen; i++) {
                 while (true) {
                     try {
-                        DatagramPacket packet = sendPacket.get(wndBase);
+                        packet = sendPacket.get(wndBase);
                         rtpService.setRWND(packet, clientAddr);
                         serverSocket.send(packet);
                         nextPacket++;
@@ -90,13 +91,12 @@ public class ServerThread implements Runnable {
             }
 
             long start = System.currentTimeMillis();
-            while (System.currentTimeMillis() - start < TIMEOUT) {
+            while (System.currentTimeMillis() - start < TIMEOUT && wndBase < sendPacket.size()) {
                 if (!rtpService.getInbox().get(clientAddr).isEmpty()) {
                     msg = rtpService.getInbox().get(clientAddr).remove(0);
                     if (RTP.isInOrder(sendPacket.get(wndBase), msg)) {
                         wndBase++;
                         wndLen = RTP.getRWND(wndLen + 1, msg);
-                        DatagramPacket packet;
                         if (nextPacket < sendPacket.size()) {
                             packet = sendPacket.get(nextPacket);
                             RTP.setAckNum(packet, rtpService.getAckNum(msg));
@@ -124,8 +124,21 @@ public class ServerThread implements Runnable {
                 }
             }
         }
-
+        
+        long start = System.currentTimeMillis();
         while (!RTP.isFIN(msg)) {
+        	if (System.currentTimeMillis() - start >= TIMEOUT) {
+        		while (true) {
+                    try {
+                        rtpService.setRWND(packet, clientAddr);
+                        serverSocket.send(packet);
+                        break;
+                    } catch (IOException e) {
+                        continue;
+                    }
+                }
+        		start = System.currentTimeMillis();
+        	}
             if (!rtpService.getInbox().get(clientAddr).isEmpty()) {
                 msg = rtpService.getInbox().get(clientAddr).remove(0);
             }
@@ -137,8 +150,8 @@ public class ServerThread implements Runnable {
         DatagramPacket sendPacket = rtpService.teardownPacket(clientMsg, clientAddr);
         while (true) {
             try {
-            	rtpService.getInbox().remove(clientAddr);
             	rtpService.setRWND(sendPacket, clientAddr);
+            	rtpService.getInbox().remove(clientAddr);
                 serverSocket.send(sendPacket);
                 break;
             } catch (IOException e) {
