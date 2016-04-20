@@ -67,6 +67,7 @@ public class ClientThread implements Callable<byte[]> {
         while(!pass) {
             try {
             	rtpService.setRWND(sendPacket, serverAddr);
+                System.out.println("Request packet sent: " +  new String(sendPacket.getData()).substring(0, 10));
                 clientSocket.send(sendPacket);
             } catch (IOException e) {
                 continue;
@@ -76,11 +77,13 @@ public class ClientThread implements Callable<byte[]> {
             while (!pass && System.currentTimeMillis() - start < TIMEOUT) {
                 if (!rtpService.getInbox().get(serverAddr).isEmpty()) {
                     msg = rtpService.getInbox().get(serverAddr).remove(0);
+                    System.out.println("Received packet: " + msg.substring(0, 10));
                     if (RTP.isInOrder(sendPacket, msg)) {
                         pass = true;
                     }
                 }
             }
+            System.out.println("Timeout.");
         }
         
         buffer = RTP.getData(msg);
@@ -88,6 +91,7 @@ public class ClientThread implements Callable<byte[]> {
         while (true) {
             try {
             	rtpService.setRWND(latestUnacked, serverAddr);
+
                 clientSocket.send(latestUnacked);
                 break;
             } catch (IOException e) {

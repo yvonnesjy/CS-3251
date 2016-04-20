@@ -1,4 +1,6 @@
+import java.lang.System;
 import java.net.*;
+import java.net.DatagramPacket;
 import java.util.List;
 import java.io.*;
 
@@ -77,13 +79,19 @@ public class ServerThread implements Runnable {
 
         String msg = null;
         DatagramPacket packet = null;
+        System.out.println("For " + info.length + " bytes, we have " + sendPacket.size() + " packets to send.");
         while (wndBase < sendPacket.size()) {
+            System.out.println("wndBase:" + wndBase);
             int nextPacket = wndBase;
             for (int i = 0; i < wndLen; i++) {
                 while (true) {
                     try {
-                        packet = sendPacket.get(wndBase);
+                        packet = sendPacket.get(wndBase + i);
                         rtpService.setRWND(packet, clientAddr);
+                        if (wndBase != 0 || i != 0){
+                            rtpService.setAckNum(packet, String.format("%03d", Integer.parseInt(rtpService.getAckNum(new String(sendPacket.get(wndBase + i - 1).getData()))) + 1));
+                        }
+                        System.out.println("Mass send packet header: " + new String(packet.getData()).substring(0, 10));
                         serverSocket.send(packet);
                         nextPacket++;
                         break;
@@ -100,6 +108,7 @@ public class ServerThread implements Runnable {
             while (System.currentTimeMillis() - start < TIMEOUT && wndBase < sendPacket.size()) {
                 if (!rtpService.getInbox().get(clientAddr).isEmpty()) {
                     msg = rtpService.getInbox().get(clientAddr).remove(0);
+                    System.out.println("Received message header: " +  msg.substring(0, 10));
                     if (RTP.isInOrder(sendPacket.get(wndBase), msg)) {
                         wndBase++;
                         wndLen = RTP.getRWND(wndLen + 1, msg);
@@ -113,6 +122,7 @@ public class ServerThread implements Runnable {
                         while (true) {
                             try {
                                 rtpService.setRWND(packet, clientAddr);
+                                System.out.println("Shift sent packet header: " + new String(packet.getData()).substring(0, 10));
                                 serverSocket.send(packet);
                                 nextPacket++;
                                 break;
@@ -129,6 +139,10 @@ public class ServerThread implements Runnable {
                     }
                 }
             }
+            if (wndBase >= sendPacket.size())
+                System.out.println("Sent all packets.");
+            else
+                System.out.println("Timeout.");
         }
         
         long start = System.currentTimeMillis();
