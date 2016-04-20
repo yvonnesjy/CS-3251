@@ -1,5 +1,6 @@
 import java.net.*;
 import java.lang.IndexOutOfBoundsException;
+import java.net.DatagramSocket;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -126,7 +127,7 @@ public class RTP {
     }
 
     public DatagramPacket makeSendPacket(InetSocketAddress clientAddr, String flags, String ack_num, byte[] data) {
-        byte[] sendData = merge((flags+getSeqNum()+ack_num).getBytes(), new byte[1], new byte[RWND_LEN], data);
+        byte[] sendData = merge((flags + getSeqNum() + ack_num).getBytes(), new byte[1], new byte[RWND_LEN], data);
         if (DATA_IND >= sendData.length) {
         	sendData[CHECKSUM] = 0;
         } else {
@@ -246,8 +247,7 @@ public class RTP {
         }
     }
     
-    public byte[] clientRoutine(InetAddress ip, int port, String request) throws SocketException {
-        DatagramSocket clientSocket = new DatagramSocket();
+    public byte[] clientRoutine(DatagramSocket clientSocket, InetAddress ip, int port, String request) throws SocketException {
         InetSocketAddress serverAddr = new InetSocketAddress(ip, port);
         List<String> packetQueue = new LinkedList<>();
         inbox.put(serverAddr, packetQueue);
@@ -284,7 +284,6 @@ public class RTP {
                 packetQueue.add(rtpData);
             }
         }
-        
         try {
         	return future.get();
         } catch (Exception e) {

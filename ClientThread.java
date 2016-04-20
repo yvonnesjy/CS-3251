@@ -1,3 +1,4 @@
+import java.lang.System;
 import java.util.ArrayList;
 import java.util.concurrent.*;
 import java.net.*;
@@ -24,7 +25,8 @@ public class ClientThread implements Callable<byte[]> {
         ArrayList<Object> catchOutput = requestInfo(connectionConfirmMsg, clientSocket, serverAddr, request);
         String infoMsg = (String)catchOutput.get(0);
         buffer = (byte[])catchOutput.get(1);
-        teardown(infoMsg, clientSocket, serverAddr);
+        if (request.equals("disconnect"))
+            teardown(infoMsg, clientSocket, serverAddr);
         return buffer;
     }
     
@@ -129,7 +131,7 @@ public class ClientThread implements Callable<byte[]> {
         
         output.add(msg);
         output.add(buffer);
-        
+
         return output;
     }
     

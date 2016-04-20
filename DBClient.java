@@ -1,5 +1,7 @@
 import java.io.*;
+import java.lang.System;
 import java.net.*;
+import java.net.DatagramSocket;
 import java.util.StringTokenizer;
 
 public class DBClient {
@@ -47,8 +49,12 @@ public class DBClient {
         }
 
         RTP rtpService = new RTP(1);
-        byte[] info = rtpService.clientRoutine(ip, port, id);
+        DatagramSocket clientSocket = new DatagramSocket();
+        clientSocket.setSoTimeout(TIMEOUT);
+        byte[] info = rtpService.clientRoutine(clientSocket, ip, port, id);
         printInfo(info, fn, ln, point, hours, gpa);
+        rtpService.clientRoutine(clientSocket, ip, port, "disconnect");
+        System.exit(0);
     }
 
     private static void printInfo(byte[] infoRec, boolean fn, boolean ln, boolean point, boolean hours, boolean gpa){

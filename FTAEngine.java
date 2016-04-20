@@ -27,7 +27,7 @@ public class FTAEngine {
         }
 
         try {
-            RTP rtpService = new RTP(sizeW, db);
+            RTP rtpService = new RTP(db);
             rtpService.serverRoutine(port);
         } catch (SocketException e) {
             System.err.println("SocketException: " + e.getMessage());

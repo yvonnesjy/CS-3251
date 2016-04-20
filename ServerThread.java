@@ -16,13 +16,19 @@ public class ServerThread implements Runnable {
     }
 
     public void run() {
-        String requestMsg = setUpConnection();
-        if (requestMsg == null) return;
-        String teardownMsg = respond(requestMsg);
-        teardown(teardownMsg);
+        while (true) {
+            String requestMsg = setUpConnection();
+            if (requestMsg == null) return;
+            String teardownMsg = respond(requestMsg);
+            if (new String(RTP.getData(requestMsg)).equals("disconnect")) {
+                teardown(teardownMsg);
+                break;
+            }
+        }
     }
 
     private String setUpConnection() {
+        while (rtpService.getInbox().get(clientAddr).isEmpty());
         String msg = rtpService.getInbox().get(clientAddr).remove(0);
         if (!RTP.isSYN(msg) || RTP.isACK(msg)) {
             rtpService.getInbox().remove(clientAddr);
@@ -126,7 +132,7 @@ public class ServerThread implements Runnable {
         }
         
         long start = System.currentTimeMillis();
-        while (!RTP.isFIN(msg)) {
+       /*while (!RTP.isFIN(msg)) {
         	if (System.currentTimeMillis() - start >= TIMEOUT) {
         		while (true) {
                     try {
@@ -142,7 +148,7 @@ public class ServerThread implements Runnable {
             if (!rtpService.getInbox().get(clientAddr).isEmpty()) {
                 msg = rtpService.getInbox().get(clientAddr).remove(0);
             }
-        }
+        } */
         return msg;
     }
 

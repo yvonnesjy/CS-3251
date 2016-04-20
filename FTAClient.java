@@ -1,12 +1,15 @@
 import java.io.*;
 import java.lang.IllegalArgumentException;
 import java.lang.System;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Scanner;
 
 public class FTAClient {
+    final static int TIMEOUT = 1000;
 
     public static void main (String[] args) throws IOException {
         //Make sure we have only our 2 arguements
@@ -40,31 +43,33 @@ public class FTAClient {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid window size");
         }
-        
-        RTP rtpService = new RTP(sizeW, null);
-        
+
+        RTP rtpService = new RTP(sizeW);
+
         Scanner scan = new Scanner(System.in);
+        DatagramSocket clientSocket = new DatagramSocket();
+        clientSocket.setSoTimeout(TIMEOUT);
         while (true) {
-        	String command = scan.nextLine();
-        	String[] components = command.split(" ");
-        	byte[] info = null;
-        	if (components[0].equals("get") && components.length == 2) {
-        		info = rtpService.clientRoutine(ip, port, components[1]);
-        	} else if (components[0].equals("disconnect") && components.length == 1) {
-        		rtpService.clientRoutine(ip, port, components[0]);
-        		break;
-        	} else {
-        		System.out.println("Invalid argument");
-        		continue;
-        	}
-        	if (info != null) {
-	        	FileOutputStream stream = new FileOutputStream("get_F");
-	            try {
-	                stream.write(info);
-	            } finally {
-	                stream.close();
-	            }
-        	}
+            String command = scan.nextLine();
+            String[] components = command.split(" ");
+            byte[] info = null;
+            if (components[0].equals("get") && components.length == 2) {
+                info = rtpService.clientRoutine(clientSocket, ip, port, components[1]);
+            } else if (components[0].equals("disconnect") && components.length == 1) {
+                rtpService.clientRoutine(clientSocket, ip, port, components[0]);
+                break;
+            } else {
+                System.out.println("Invalid argument");
+                continue;
+            }
+            if (info != null) {
+                FileOutputStream stream = new FileOutputStream("get_F");
+                try {
+                    stream.write(info);
+                } finally {
+                    stream.close();
+                }
+            }
         }
         System.exit(0);
     }
