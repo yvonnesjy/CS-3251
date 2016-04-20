@@ -69,7 +69,7 @@ public class ServerThread implements Runnable {
     }
 
     private String respond(String clientMsg) {
-        String request = new String(RTP.getData(clientMsg));
+        String request = new String(RTP.getData(clientMsg)).trim();
         byte[] info = rtpService.getDB().query(request);
 
         List<DatagramPacket> sendPacket = rtpService.makeListOfPackets(clientMsg, clientAddr, info);
@@ -80,6 +80,7 @@ public class ServerThread implements Runnable {
         String msg = null;
         DatagramPacket packet = null;
         System.out.println("For " + info.length + " bytes, we have " + sendPacket.size() + " packets to send.");
+
         while (wndBase < sendPacket.size()) {
             System.out.println("wndBase:" + wndBase);
             int nextPacket = wndBase;
@@ -89,9 +90,12 @@ public class ServerThread implements Runnable {
                         packet = sendPacket.get(wndBase + i);
                         rtpService.setRWND(packet, clientAddr);
                         if (wndBase != 0 || i != 0){
-                            rtpService.setAckNum(packet, String.format("%03d", Integer.parseInt(rtpService.getAckNum(new String(sendPacket.get(wndBase + i - 1).getData()))) + 1));
+                            rtpService.setAckNum(packet, String.format("%03d", Integer.parseInt(rtpService.getAckNum(new String(sendPacket.get(wndBase + i - 1).getData())))));
                         }
                         System.out.println("Mass send packet header: " + new String(packet.getData()).substring(0, 10));
+                        if (RTP.getData(new String(packet.getData())) == null){
+                            System.out.println("sending packet with null data");
+                        }
                         serverSocket.send(packet);
                         nextPacket++;
                         break;
@@ -112,17 +116,23 @@ public class ServerThread implements Runnable {
                     if (RTP.isInOrder(sendPacket.get(wndBase), msg)) {
                         wndBase++;
                         wndLen = RTP.getRWND(wndLen + 1, msg);
+                        System.out.println("NextPacket:" + nextPacket + " sendPacketsize:" + sendPacket.size());
                         if (nextPacket < sendPacket.size()) {
                             packet = sendPacket.get(nextPacket);
                             RTP.setAckNum(packet, rtpService.getAckNum(msg));
                         } else {
-                            packet = rtpService.makeSendPacket(clientAddr, "100", rtpService.getAckNum(msg), new byte[0]);
+                            System.out.println("Sending end of transmission packet");
+                            packet = rtpService.makeSendPacket(clientAddr, "111", rtpService.getAckNum(msg), new byte[0]);
                         }
                         
                         while (true) {
                             try {
                                 rtpService.setRWND(packet, clientAddr);
+
                                 System.out.println("Shift sent packet header: " + new String(packet.getData()).substring(0, 10));
+                                if (RTP.getData(new String(packet.getData())) == null){
+                                    System.out.println("Sending packet with null data");
+                                }
                                 serverSocket.send(packet);
                                 nextPacket++;
                                 break;

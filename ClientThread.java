@@ -1,3 +1,4 @@
+import java.lang.String;
 import java.lang.System;
 import java.util.ArrayList;
 import java.util.concurrent.*;
@@ -99,27 +100,36 @@ public class ClientThread implements Callable<byte[]> {
             }
         }
         boolean allAcked = false;
-        
+        boolean STOP = false;
+
         while (!allAcked) {
             if (!rtpService.getInbox().get(serverAddr).isEmpty()) {
+                System.out.println("Lets process a packet.");
                 msg = rtpService.getInbox().get(serverAddr).remove(0);
-                if (RTP.isInOrder(latestUnacked, msg) && RTP.getData(msg) != null) {
+                if (RTP.isInOrder(latestUnacked, msg) && !msg.substring(0,3).equals("111")) {
+                    System.out.println("Packet in order, has data");
                 	buffer = putInBuffer(buffer, msg);
-                	
+                	System.out.println("we made it past buffer");
                     latestUnacked = rtpService.makeSendPacket(serverAddr, "100", rtpService.getAckNum(msg), new byte[0]);
+                    System.out.println("we made it past latestUnacked");
                     
                     while (true) {
                         try {
                         	rtpService.setRWND(latestUnacked, serverAddr);
+                            System.out.println("Sending ACK with Header: " + new String(latestUnacked.getData()).substring(0,10));
                             clientSocket.send(latestUnacked);
                             break;
                         } catch (IOException e) {
+                            System.out.println("Exception when sending ACK with header: " + new String(latestUnacked.getData()).substring(0,1));
                             continue;
                         }
                     }
                 } else if (RTP.isInOrder(latestUnacked, msg)) {
+                    if (msg.substring(0,3).equals("111"));
+                        System.out.println("End of transmission");
                 	allAcked = true;
                 } else {
+                    System.out.println("Out of order packet.");
                 	while (true) {
                         try {
                         	rtpService.setRWND(latestUnacked, serverAddr);
@@ -130,9 +140,14 @@ public class ClientThread implements Callable<byte[]> {
                         }
                     }
                 }
+                STOP = false;
+            } else {
+                if (!STOP) {
+                    System.out.println("We empty BoyZ");
+                    STOP = true;
+                }
             }
         }
-        
         output.add(msg);
         output.add(buffer);
 

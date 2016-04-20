@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import java.util.Scanner;
 
 public class FTAClient {
-    final static int TIMEOUT = 1000;
+    final static int TIMEOUT = 2000;
 
     public static void main (String[] args) throws IOException {
         //Make sure we have only our 2 arguements

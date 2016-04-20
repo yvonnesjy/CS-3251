@@ -1,3 +1,5 @@
+import java.lang.Byte;
+import java.lang.System;
 import java.net.*;
 import java.lang.IndexOutOfBoundsException;
 import java.net.DatagramSocket;
@@ -90,7 +92,9 @@ public class RTP {
                 checksum ^= packet[i];
             }
         }
-        return checksum == packet[CHECKSUM];
+        
+        return true;
+        //return checksum == packet[CHECKSUM];
     }
 
     public static boolean isInOrder(DatagramPacket sentPacket, String ackMsg) throws IndexOutOfBoundsException {
@@ -179,6 +183,9 @@ public class RTP {
         if (num == ackNum) {
             ackNum++;
         }
+        if (ackNum == MAX_ACK_NUM) {
+            ackNum = 0;
+        }
         return String.format("%0" + ACK_LEN + "d", ackNum);
     }
     
@@ -203,10 +210,10 @@ public class RTP {
     }
 
     public static byte[] getData(String msg) {
-    	if (DATA_IND >= msg.trim().length()) {
+    	/*if (DATA_IND >= msg.trim().length()) {
     		return null;
-    	}
-        return msg.trim().substring(DATA_IND).getBytes();
+    	}*/
+        return msg.substring(DATA_IND).getBytes();
     }
     
     public static String responseAckNum(String msg) {
@@ -260,10 +267,13 @@ public class RTP {
             DatagramPacket receivePacket = makeReceivePacket();
             try {
                 clientSocket.receive(receivePacket);
+                System.out.println("Received DatagramPacket with RTP header: " + new String(receivePacket.getData()).substring(0, 10));
             } catch (IOException e) {
+                System.out.println("Exception on receiving datagram.");
                 continue;
             }
             if (!checkSum(receivePacket.getData())) {
+                System.out.println("Exception on checksum.");
                 continue;
             }
             
@@ -271,17 +281,22 @@ public class RTP {
             try {
                 addr = (InetSocketAddress) receivePacket.getSocketAddress();
             } catch (IllegalArgumentException e) { // To filter some system internet configuration socket
+                System.out.println("Exception getting socket address from datagram.");
                 continue;
             }
             
             if (!addr.equals(serverAddr)) {
+                System.out.println("Exception matching packet addr to server addr.");
                 continue;
             }
-            
+            byte[] rtpPacket = receivePacket.getData();
             String rtpData = new String(receivePacket.getData());
-
+            System.out.println("About to try to put Datagram into Queue.");
             if (packetQueue.isEmpty() || !packetQueue.get(packetQueue.size() - 1).equals(rtpData)) {
+                System.out.println("Adding packet to Queue with header: " + rtpData.substring(0,10) + " and " + rtpPacket.length + " total bytes");
                 packetQueue.add(rtpData);
+            } else {
+                System.out.println("Queue empty or duplicate packet detected.");
             }
         }
         try {
