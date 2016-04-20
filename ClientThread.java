@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.concurrent.*;
 import java.net.*;
 import java.io.*;
@@ -20,7 +21,9 @@ public class ClientThread implements Callable<byte[]> {
     public byte[] call() {
         String connectionConfirmMsg = setUpConnection(clientSocket, serverAddr);
         byte[] buffer = null;
-        String infoMsg = requestInfo(connectionConfirmMsg, clientSocket, serverAddr, request, buffer);
+        ArrayList<Object> catchOutput = requestInfo(connectionConfirmMsg, clientSocket, serverAddr, request);
+        String infoMsg = (String)catchOutput.get(0);
+        buffer = (byte[])catchOutput.get(1);
         teardown(infoMsg, clientSocket, serverAddr);
         return buffer;
     }
@@ -52,11 +55,13 @@ public class ClientThread implements Callable<byte[]> {
         return msg;
     }
 
-    private String requestInfo(String serverMsg, DatagramSocket clientSocket, InetSocketAddress serverAddr, String request, byte[] buffer) {
+    private ArrayList<Object> requestInfo(String serverMsg, DatagramSocket clientSocket, InetSocketAddress serverAddr, String request) {
         DatagramPacket sendPacket = rtpService.makeConnectionPacket(serverMsg, serverAddr, request.getBytes());
         
         String msg = null;
         boolean pass = false;
+        byte[] buffer;
+        ArrayList<Object> output = new ArrayList<Object>();
         while(!pass) {
             try {
             	rtpService.setRWND(sendPacket, serverAddr);
@@ -122,7 +127,10 @@ public class ClientThread implements Callable<byte[]> {
             }
         }
         
-        return msg;
+        output.add(msg);
+        output.add(buffer);
+        
+        return output;
     }
     
     private byte[] putInBuffer(byte[] buffer, String msg) {
